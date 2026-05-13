@@ -6,6 +6,7 @@ import regex as re
 import itertools
 from collections import defaultdict, Counter
 import heapq
+import time
 
 def find_chunk_boundaries(
     file: BinaryIO,
@@ -91,7 +92,8 @@ def pre_tokenize(input_path: str, start: int, end: int, special_tokens: list[str
 def train_bpe(
     input_path: str,
     vocab_size: int,
-    special_tokens: list[str]
+    special_tokens: list[str],
+    verbose=False
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     '''
     Input:
@@ -103,6 +105,8 @@ def train_bpe(
         vocab: dict[int, bytes]. The tokenizer vocab, a mapping from int (token ID in the vocab) to bytes (token bytes).
         merges: list[tuple[bytes, bytes]]. A list of BPE merges produced from training. Each list item is a tuple of bytes (<token1>, <token2>), representing that <token1> was merged with <token2>. The merges should be ordered by order of creation.
     '''
+
+    start_time = time.time()
 
     pretoken_count = {} # pre-token bytes tuple -> count
     vocab = {}
@@ -117,8 +121,11 @@ def train_bpe(
     merges = []
 
     # Step 1: Parallel pre-tokenization
+
+    if verbose:
+        print("starting pre-tokenization...")
     with open(input_path, "rb") as f:
-        num_processes = max(1, os.cpu_count() - 1)
+        num_processes = 4
         # boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
         boundaries = find_chunk_boundaries(f, num_processes, [token.encode("utf-8") for token in special_tokens])
 
@@ -135,7 +142,12 @@ def train_bpe(
             for counts in results:
                 for token_bytes, count in counts.items():
                     pretoken_count[token_bytes] = pretoken_count.get(token_bytes, 0) + count
+        
+        if verbose:
+            print(f"finished pre-tokenization in {time.time() - start_time:.2f} seconds!")
             
+        if verbose:
+            print("start BPE merges")
         # Step 2: Train BPE merges
         pair_counts = {} # (token_bytes1, token_bytes2) -> current freq
         pair_to_pretoken_bytes = defaultdict(set) # (token_bytes1, token_bytes2) -> set of pre-token bytes that contain this pair
@@ -148,7 +160,15 @@ def train_bpe(
         pair_counts_heap = [(-count, pair) for pair, count in pair_counts.items()]
         heapq.heapify(pair_counts_heap)
 
+
+        prev_time = time.time()
+
         while len(vocab) < vocab_size:
+            if verbose:
+                if len(vocab) % 100 == 0:
+                    print(f'[{len(vocab)} / {vocab_size}] merges: {time.time() - prev_time:.2f} seconds')
+                    prev_time = time.time()
+
             if not pair_counts:
                 break
 
