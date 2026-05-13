@@ -2,8 +2,18 @@ import json
 import time
 
 from .adapters import run_train_bpe
-from .common import FIXTURES_PATH, gpt2_bytes_to_unicode
+from .common import FIXTURES_PATH, DATA_PATH, gpt2_bytes_to_unicode
 
+def test_train_bpe_tinystory():
+    input_path = DATA_PATH / "TinyStoriesV2-GPT4-train.txt"
+    start_time = time.time()
+    _, _ = run_train_bpe(
+        input_path=input_path,
+        vocab_size=10000,
+        special_tokens=["<|endoftext|>"],
+    )
+    end_time = time.time()
+    print(f"Training BPE on TinyStoriesV2_GPT4-train.txt took {end_time - start_time:.2f} seconds")
 
 def test_train_bpe_speed():
     """
