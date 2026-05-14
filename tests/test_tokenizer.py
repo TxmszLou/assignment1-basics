@@ -189,6 +189,22 @@ def test_ascii_string_matches_tiktoken():
     assert tokenizer.decode(ids) == test_string
     assert reference_tokenizer.decode(reference_ids) == test_string
 
+def test_unicode_string():
+    tokenizer = get_tokenizer_from_vocab_merges_path(
+        vocab_path=VOCAB_PATH,
+        merges_path=MERGES_PATH,
+    )
+    text = "ò"
+    ids = tokenizer.encode(text)
+
+    print(ids)
+
+    for i in ids:
+        print(i, tokenizer.vocab[i])
+
+    assert tokenizer.decode(ids) == text
+
+    
 
 def test_roundtrip_unicode_string():
     tokenizer = get_tokenizer_from_vocab_merges_path(
